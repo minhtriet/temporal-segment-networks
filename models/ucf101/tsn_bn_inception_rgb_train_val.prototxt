@@ -6,7 +6,7 @@ layer {
   top: "label"
   video_data_param {
     source: "data/ucf101_rgb_train_split_1.txt"
-    batch_size: 32
+    batch_size: 128
     new_length: 1
     num_segments: 3
     modality: RGB

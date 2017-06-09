@@ -1,6 +1,7 @@
 import argparse
 import os
 import sys
+import pdb
 
 sys.path.append('.')
 from pyActionRecog import parse_directory, build_split_list
@@ -32,6 +33,8 @@ shuffle = args.shuffle
 print 'processing dataset {}'.format(dataset)
 split_tp = parse_split_file(dataset)
 f_info = parse_directory(frame_path, rgb_p, flow_x_p, flow_y_p)
+#pdb.set_trace()
+
 
 print 'writing list files for training/testing'
 for i in xrange(max(num_split, len(split_tp))):

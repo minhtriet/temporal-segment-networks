@@ -5,7 +5,7 @@ MODALITY=$2
 
 TOOLS=lib/caffe-action/build/install/bin
 LOG_FILE=logs/${DATASET}_${MODALITY}_split1.log
-N_GPU=4
+N_GPU=1
 MPI_BIN_DIR= #/usr/local/openmpi/bin/
 
 

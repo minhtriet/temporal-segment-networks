@@ -45,13 +45,15 @@ def run_optical_flow(vid_item, dev_id=0):
 
     current = current_process()
     dev_id = (int(current._identity[0]) - 1) % NUM_GPU
-    image_path = '{}/img'.format(out_full_path)
+    
+    image_path = '{}/image'.format(out_full_path)
     flow_x_path = '{}/flow_x'.format(out_full_path)
     flow_y_path = '{}/flow_y'.format(out_full_path)
 
+    print '...............'
     cmd = os.path.join(df_path + 'build/extract_gpu')+' -f {} -x {} -y {} -i {} -b 20 -t 1 -d {} -s 1 -o {} -w {} -h {}'.format(
         quote(vid_path), quote(flow_x_path), quote(flow_y_path), quote(image_path), dev_id, out_format, new_size[0], new_size[1])
-
+    print cmd
     os.system(cmd)
     print '{} {} done'.format(vid_id, vid_name)
     sys.stdout.flush()
