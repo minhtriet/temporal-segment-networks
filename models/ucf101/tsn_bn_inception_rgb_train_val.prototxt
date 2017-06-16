@@ -11,7 +11,7 @@ layer {
     num_segments: 3
     modality: RGB
     shuffle: true
-    name_pattern: "img_%05d.jpg"
+    name_pattern: "image_%05d.jpg"
   }
   transform_param{
     crop_size: 224
@@ -37,7 +37,7 @@ layer {
     new_length: 1
     num_segments: 3
     modality: RGB
-    name_pattern: "img_%05d.jpg"
+    name_pattern: "image_%05d.jpg"
   }
   transform_param{
     crop_size: 224

@@ -8,7 +8,7 @@ from pyActionRecog import parse_directory, build_split_list
 from pyActionRecog import parse_split_file
 
 parser = argparse.ArgumentParser()
-parser.add_argument('dataset', type=str, choices=['ucf101', 'hmdb51', 'activitynet_1.2', 'activitynet_1.3'])
+parser.add_argument('dataset', type=str, choices=['ucf101', 'hmdb51', 'activitynet_1.2', 'activitynet_1.3', 'huawei'])
 parser.add_argument('frame_path', type=str, help="root directory holding the frames")
 parser.add_argument('--rgb_prefix', type=str, help="prefix of RGB frames", default='img_')
 parser.add_argument('--flow_x_prefix', type=str, help="prefix of x direction flow images", default='flow_x')

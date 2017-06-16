@@ -43,13 +43,12 @@ def parse_directory(path, rgb_prefix='image_', flow_x_prefix='flow_x_', flow_y_p
 
 
 def build_split_list(split_tuple, frame_info, split_idx, shuffle=False):
-    pdb.set_trace()
     split = split_tuple[split_idx]
 
     def build_set_list(set_list):
         rgb_list, flow_list = list(), list()
         for item in set_list:
-            print item
+            pdb.set_trace()
             frame_dir = frame_info[0][item[0]]
             rgb_cnt = frame_info[1][item[0]]
             flow_cnt = frame_info[2][item[0]]
@@ -67,15 +66,33 @@ def build_split_list(split_tuple, frame_info, split_idx, shuffle=False):
 
 
 ## Dataset specific split file parse
+def parse_huawei_splits():
+    def line2rec(line):
+        items = line.split(' ')
+        label = items[1]
+        vid = items[0]
+        return vid, label
+
+    splits = []
+    for i in xrange(1, 2):
+        train_list = [line2rec(x) for x in open('data/huawei_splits/trainlist{:02d}.txt'.format(i))]
+        test_list = [line2rec(x) for x in open('data/huawei_splits/testlist{:02d}.txt'.format(i))]
+        splits.append((train_list, test_list))
+    return splits
+
 def parse_ucf_splits():
     class_ind = [x.strip().split() for x in open('data/ucf101_splits/classInd.txt')]
     class_mapping = {x[1]:int(x[0])-1 for x in class_ind}
 
     def line2rec(line):
-        items = line.strip().split('/')
-        label = class_mapping[items[0]]
-        vid = items[1].split('.')[0]
-        return vid, label
+        try:
+            items = line.strip().split('/')
+            label = class_mapping[items[0]]
+            vid = items[1].split('.')[0]
+            return vid, label
+        except:
+            print 'no class'
+            return 'a', 1
 
     splits = []
     for i in xrange(1, 4):
