@@ -5,7 +5,7 @@ import glob
 import sys
 from pipes import quote
 from multiprocessing import Pool, current_process
-
+import pdb
 import argparse
 out_path = ''
 
@@ -93,7 +93,7 @@ if __name__ == '__main__':
     parser.add_argument("--df_path", type=str, default='./lib/dense_flow/', help='path to the dense_flow toolbox')
     parser.add_argument("--out_format", type=str, default='dir', choices=['dir','zip'],
                         help='path to the dense_flow toolbox')
-    parser.add_argument("--ext", type=str, default='avi', choices=['avi','mp4'], help='video file extensions')
+    parser.add_argument("--ext", type=str, default='mp4', choices=['avi','mp4'], help='video file extensions')
     parser.add_argument("--new_width", type=int, default=0, help='resize image width')
     parser.add_argument("--new_height", type=int, default=0, help='resize image height')
     parser.add_argument("--num_gpu", type=int, default=8, help='number of GPU')
@@ -114,7 +114,8 @@ if __name__ == '__main__':
         print "creating folder: "+out_path
         os.makedirs(out_path)
 
-    vid_list = glob.glob(src_path+'/*/*.'+ext)
+#    vid_list = glob.glob(src_path+'/*/*.'+ext)
+    vid_list = glob.glob(src_path+'/*.'+ext)
     print len(vid_list)
     pool = Pool(num_worker)
     if flow_type == 'tvl1':

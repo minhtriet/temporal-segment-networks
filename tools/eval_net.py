@@ -2,26 +2,34 @@ import argparse
 import os
 import sys
 import math
+sys.path.append('.')
 import cv2
 import numpy as np
 import multiprocessing
 from sklearn.metrics import confusion_matrix
 
-sys.path.append('.')
+import pdb
+
 from pyActionRecog import parse_directory
 from pyActionRecog import parse_split_file
 
 from pyActionRecog.utils.video_funcs import default_aggregation_func
 
+def softmax(x):
+    """Compute softmax"""
+    mx = np.max(x)
+    e_x = np.exp(x - mx)
+    return e_x / e_x.sum()
+
 parser = argparse.ArgumentParser()
-parser.add_argument('dataset', type=str, choices=['ucf101', 'hmdb51'])
+parser.add_argument('dataset', type=str, choices=['ucf101', 'hmdb51', 'huawei_fb', 'huawei_bb'])
 parser.add_argument('split', type=int, choices=[1, 2, 3],
                     help='on which split to test the network')
 parser.add_argument('modality', type=str, choices=['rgb', 'flow'])
 parser.add_argument('frame_path', type=str, help="root directory holding the frames")
 parser.add_argument('net_proto', type=str)
 parser.add_argument('net_weights', type=str)
-parser.add_argument('--rgb_prefix', type=str, help="prefix of RGB frames", default='img_')
+parser.add_argument('--rgb_prefix', type=str, help="prefix of RGB frames", default='image_')
 parser.add_argument('--flow_x_prefix', type=str, help="prefix of x direction flow images", default='flow_x_')
 parser.add_argument('--flow_y_prefix', type=str, help="prefix of y direction flow images", default='flow_y_')
 parser.add_argument('--num_frame_per_video', type=int, default=25,
@@ -40,15 +48,25 @@ from pyActionRecog.action_caffe import CaffeNet
 # build neccessary information
 print args.dataset
 split_tp = parse_split_file(args.dataset)
+
+def line2rec(line):
+    items = line.split(' ')
+    label = items[1]
+    vid = items[0]
+    return vid, label
+
+split_tp = [line2rec(x) for x in open('data/huawei_splits/test.txt')]
+
 f_info = parse_directory(args.frame_path,
                          args.rgb_prefix, args.flow_x_prefix, args.flow_y_prefix)
 
 gpu_list = args.gpus
 
+#eval_video_list = split_tp[args.split - 1][1]
 
-eval_video_list = split_tp[args.split - 1][1]
-
-score_name = 'fc-action'
+eval_video_list = split_tp
+# score_name = 'fc-action'
+score_name = 'fc-huawei'
 
 
 def build_net():
@@ -64,8 +82,7 @@ def build_net():
 def eval_video(video):
     global net
     label = video[1]
-    vid = video[0]
-
+    vid = os.path.basename(video[0])
     video_frame_path = f_info[0][vid]
     if args.modality == 'rgb':
         cnt_indexer = 1
@@ -105,7 +122,7 @@ def eval_video(video):
                 flow_stack.append(cv2.imread(os.path.join(video_frame_path, x_name), cv2.IMREAD_GRAYSCALE))
                 flow_stack.append(cv2.imread(os.path.join(video_frame_path, y_name), cv2.IMREAD_GRAYSCALE))
             scores = net.predict_single_flow_stack(flow_stack, score_name, frame_size=(340, 256))
-            frame_scores.append(scores)
+            frame_scores.append(softmax(scores))
 
     print 'video {} done'.format(vid)
     sys.stdin.flush()
@@ -119,10 +136,16 @@ else:
     video_scores = map(eval_video, eval_video_list)
 
 video_pred = [np.argmax(default_aggregation_func(x[0])) for x in video_scores]
+max_scores = [np.max(default_aggregation_func(x[0])) for x in video_scores]
+
+for index , x in enumerate(max_scores):
+    print "%s %s %s" % (x, video_pred[index], eval_video_list[index])
+
+video_pred = [str(x) for x in video_pred]
+
 video_labels = [x[1] for x in video_scores]
-
 cf = confusion_matrix(video_labels, video_pred).astype(float)
-
+print cf
 cls_cnt = cf.sum(axis=1)
 cls_hit = np.diag(cf)
 
@@ -134,7 +157,3 @@ print 'Accuracy {:.02f}%'.format(np.mean(cls_acc)*100)
 
 if args.save_scores is not None:
     np.savez(args.save_scores, scores=video_scores, labels=video_labels)
-
-
-
-

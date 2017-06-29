@@ -12,7 +12,6 @@ def parse_directory(path, rgb_prefix='image_', flow_x_prefix='flow_x_', flow_y_p
     """
     print 'parse frames under folder {}'.format(path)
     frame_folders = glob.glob(os.path.join(path, '*'))
-
     def count_files(directory, prefix_list):
         lst = os.listdir(directory)
         cnt_list = [len(fnmatch.filter(lst, x+'*')) for x in prefix_list]
@@ -23,8 +22,6 @@ def parse_directory(path, rgb_prefix='image_', flow_x_prefix='flow_x_', flow_y_p
     flow_counts = {}
     dir_dict = {}
     for i,f in enumerate(frame_folders):
-        print '------------------------'
-        print f
         all_cnt = count_files(f, (rgb_prefix, flow_x_prefix, flow_y_prefix))
         k = f.split('/')[-1]
         rgb_counts[k] = all_cnt[0]
@@ -35,8 +32,8 @@ def parse_directory(path, rgb_prefix='image_', flow_x_prefix='flow_x_', flow_y_p
         if x_cnt != y_cnt:
             raise ValueError('x and y direction have different number of flow images. video: '+f)
         flow_counts[k] = x_cnt
-        #if i % 200 == 0:
-        print '{} videos parsed'.format(i)
+        if i % 200 == 0:
+            print '{} videos parsed'.format(i)
 
     print 'frame folder analysis done'
     return dir_dict, rgb_counts, flow_counts
@@ -48,7 +45,6 @@ def build_split_list(split_tuple, frame_info, split_idx, shuffle=False):
     def build_set_list(set_list):
         rgb_list, flow_list = list(), list()
         for item in set_list:
-            pdb.set_trace()
             frame_dir = frame_info[0][item[0]]
             rgb_cnt = frame_info[1][item[0]]
             flow_cnt = frame_info[2][item[0]]
@@ -74,10 +70,9 @@ def parse_huawei_splits():
         return vid, label
 
     splits = []
-    for i in xrange(1, 2):
-        train_list = [line2rec(x) for x in open('data/huawei_splits/trainlist{:02d}.txt'.format(i))]
-        test_list = [line2rec(x) for x in open('data/huawei_splits/testlist{:02d}.txt'.format(i))]
-        splits.append((train_list, test_list))
+    train_list = [line2rec(x) for x in open('data/huawei_splits/train.txt')]
+    test_list = [line2rec(x) for x in open('data/huawei_splits/test.txt')]
+    splits.append((train_list, test_list))
     return splits
 
 def parse_ucf_splits():
