@@ -117,14 +117,13 @@ def output(video_scores, prior=None):
         temp = [default_aggregation_func(x[0]) for x in video_scores]
         temp = [ map(operator.truediv, x, prior) for x in temp]
         video_pred = [ np.argmax(x) for x in temp]
-        max_scores = [ np.max(x) for x in video_scores]
+        max_scores = [ np.max(x) for x in temp]
     else:
         video_pred = [np.argmax(default_aggregation_func(x[0])) for x in video_scores]
         max_scores = [np.max(default_aggregation_func(x[0])) for x in video_scores]
 
     for index , x in enumerate(max_scores):
         print "%s %s %s" % (x, video_pred[index], eval_video_list[index])
-    pdb.set_trace()
     video_labels = [x[1] for x in video_scores]
 
     cf = confusion_matrix(video_labels, video_pred).astype(float)
