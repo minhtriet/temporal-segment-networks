@@ -62,16 +62,29 @@ def build_split_list(split_tuple, frame_info, split_idx, shuffle=False):
 
 
 ## Dataset specific split file parse
-def parse_huawei_splits():
+def parse_huawei_fb():
     def line2rec(line):
         items = line.split(' ')
-        label = items[1]
+        label = items[2]
         vid = items[0]
         return vid, label
 
     splits = []
-    train_list = [line2rec(x) for x in open('data/huawei_splits/train.txt')]
-    test_list = [line2rec(x) for x in open('data/huawei_splits/test.txt')]
+    train_list = [line2rec(x) for x in open('data/huawei_splits/train_fb.txt')]
+#    test_list = [line2rec(x) for x in open('data/huawei_splits/test_fb.txt')]
+    splits.append(train_list)
+    return splits
+
+def parse_huawei_bb():
+    def line2rec(line):
+        items = line.split(' ')
+        label = items[2]
+        vid = items[0]
+        return vid, label
+
+    splits = []
+    train_list = [line2rec(x) for x in open('data/huawei_splits/train_bb.txt')]
+    test_list = [line2rec(x) for x in open('data/huawei_splits/test_bb.txt')]
     splits.append((train_list, test_list))
     return splits
 

@@ -9,10 +9,14 @@ import multiprocessing
 from sklearn.metrics import confusion_matrix
 
 import pdb
+import json
 
-from pyActionRecog import parse_directory
+import operator
+
+#from pyActionRecog import parse_directory
 from pyActionRecog import parse_split_file
 
+import subprocess
 from pyActionRecog.utils.video_funcs import default_aggregation_func
 
 def softmax(x):
@@ -20,6 +24,27 @@ def softmax(x):
     mx = np.max(x)
     e_x = np.exp(x - mx)
     return e_x / e_x.sum()
+
+def priors(x):
+
+    def load_json(path):
+        with open(path) as fj:
+            data = json.load(fj)
+        return data
+
+    priors = []
+    if x == 'huawei_fb':
+        classes = load_json('data/huawei_splits/classes_fb.json')
+        print "List classes:" 
+        print classes
+        train_file = 'data/huawei_splits/train_fb.txt'
+        for i in classes:
+            batcmd="grep '%s' %s | wc -l" % (i, train_file)
+            result = subprocess.check_output(batcmd, shell=True)
+            priors.append(int(result))
+
+    priors = [-1 if x == 0 else x for x in priors]
+    return priors
 
 parser = argparse.ArgumentParser()
 parser.add_argument('dataset', type=str, choices=['ucf101', 'hmdb51', 'huawei_fb', 'huawei_bb'])
@@ -51,21 +76,30 @@ split_tp = parse_split_file(args.dataset)
 
 def line2rec(line):
     items = line.split(' ')
-    label = items[1]
+    label = int(items[2])
     vid = items[0]
-    return vid, label
+    return vid, label, int(items[1]) # length
 
-split_tp = [line2rec(x) for x in open('data/huawei_splits/test.txt')]
+if args.dataset == 'huawei_fb':
+    split_tp = [line2rec(x) for x in open('data/huawei_splits/test_fb.txt')]
+else:
+    split_tp = [line2rec(x) for x in open('data/huawei_splits/test_bb.txt')]
 
-f_info = parse_directory(args.frame_path,
-                         args.rgb_prefix, args.flow_x_prefix, args.flow_y_prefix)
+f_info = [{}, {}, {}]
 
+for x in split_tp:
+    f_info[0][os.path.basename(x[0])] = x[0]
+    f_info[1][os.path.basename(x[0])] = x[2]
+    f_info[2][os.path.basename(x[0])] = x[2]
+    # assume that length of rgb and flow is same
+    
+# f_info = parse_directory(args.frame_path,
+#                         args.rgb_prefix, args.flow_x_prefix, args.flow_y_prefix, list_file)
 gpu_list = args.gpus
 
 #eval_video_list = split_tp[args.split - 1][1]
 
 eval_video_list = split_tp
-# score_name = 'fc-action'
 score_name = 'fc-huawei'
 
 
@@ -77,6 +111,38 @@ def build_net():
         net = CaffeNet(args.net_proto, args.net_weights, my_id-1)
     else:
         net = CaffeNet(args.net_proto, args.net_weights, gpu_list[my_id - 1])
+
+def output(video_scores, prior=None):
+    if prior != None:
+        temp = [default_aggregation_func(x[0]) for x in video_scores]
+        pdb.set_trace()
+        video_pred = [ map(operator.truediv, x, prior) for x in temp]
+        
+#        video_pred = [ map(operator.truediv, np.argmax(default_aggregation_func(x[0])), prior) for x in video_scores]
+#        max_scores = [ map(operator.truediv, np.max(default_aggregation_func(x[0])), prior) for x in video_scores]
+#    else:
+    video_pred = [np.argmax(default_aggregation_func(x[0])) for x in video_scores]
+    max_scores = [np.max(default_aggregation_func(x[0])) for x in video_scores]
+
+    for index , x in enumerate(max_scores):
+        print "%s %s %s" % (x, video_pred[index], eval_video_list[index])
+
+    video_pred = [str(x) for x in video_pred]
+
+    video_labels = [x[1] for x in video_scores]
+
+    cf = confusion_matrix(video_labels, video_pred).astype(float)
+    print cf
+    cls_cnt = cf.sum(axis=1)
+    cls_hit = np.diag(cf)
+
+    cls_acc = cls_hit/cls_cnt
+
+    print cls_acc
+
+    print 'Mean accuracy over classes {:.02f}%'.format(np.mean(cls_acc)*100)
+    print 'Accuracy over classes: %s' % (np.mean(cls_acc)*100)
+    print 'Accuracy over samples: %s'% (cls_hit / np.sum(cf)*100)
 
 
 def eval_video(video):
@@ -135,25 +201,12 @@ else:
     build_net()
     video_scores = map(eval_video, eval_video_list)
 
-video_pred = [np.argmax(default_aggregation_func(x[0])) for x in video_scores]
-max_scores = [np.max(default_aggregation_func(x[0])) for x in video_scores]
+output(video_scores)
 
-for index , x in enumerate(max_scores):
-    print "%s %s %s" % (x, video_pred[index], eval_video_list[index])
-
-video_pred = [str(x) for x in video_pred]
-
-video_labels = [x[1] for x in video_scores]
-cf = confusion_matrix(video_labels, video_pred).astype(float)
-print cf
-cls_cnt = cf.sum(axis=1)
-cls_hit = np.diag(cf)
-
-cls_acc = cls_hit/cls_cnt
-
-print cls_acc
-
-print 'Accuracy {:.02f}%'.format(np.mean(cls_acc)*100)
+print 'Divide score by prior'
+prior = priors(args.dataset)
+print "Prior %s " % prior
+output(video_scores, prior)
 
 if args.save_scores is not None:
     np.savez(args.save_scores, scores=video_scores, labels=video_labels)

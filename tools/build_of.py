@@ -99,7 +99,7 @@ if __name__ == '__main__':
     parser.add_argument("--num_gpu", type=int, default=8, help='number of GPU')
 
     args = parser.parse_args()
-
+    print "done parsing"
     out_path = args.out_dir
     src_path = args.src_dir
     num_worker = args.num_worker
