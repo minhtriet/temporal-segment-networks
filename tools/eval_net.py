@@ -125,7 +125,10 @@ def output(video_scores, prior=None):
     for index , x in enumerate(max_scores):
         print "%s %s %s" % (x, video_pred[index], eval_video_list[index])
     video_labels = [x[1] for x in video_scores]
-
+    
+    # removing classes:
+    video_labels = [2 if x == 4 else x for x in video_labels]
+    video_pred = [2 if x == 4 else x for x in video_pred]
     cf = confusion_matrix(video_labels, video_pred).astype(float)
     print cf
     cls_cnt = cf.sum(axis=1)
@@ -195,11 +198,12 @@ if args.num_worker > 1:
 else:
     build_net()
     video_scores = map(eval_video, eval_video_list)
-
+np.save('preprior', video_scores)
 output(video_scores)
 
 print 'Divide score by prior'
 prior = priors(args.dataset)
 print "Prior %s " % prior
+np.save('prior', video_scores)
 output(video_scores, prior)
 
