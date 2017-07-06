@@ -105,3 +105,4 @@ ENV/
 *.swp
 *.swo
 *.npz
+*.npy
