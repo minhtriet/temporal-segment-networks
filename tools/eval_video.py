@@ -13,20 +13,16 @@ import json
 
 import operator
 
-#from pyActionRecog import parse_directory
 from pyActionRecog import parse_split_file
 
 import subprocess
-from pyActionRecog.utils.video_funcs import default_aggregation_func
 
-def softmax(x):
-    """Compute softmax"""
-    mx = np.max(x)
-    e_x = np.exp(x - mx)
-    return e_x / e_x.sum()
+def softmax(raw_score, T=1):
+    exp_s = np.exp((raw_score - raw_score.max(axis=-1)[..., None])*T)
+    sum_s = exp_s.sum(axis=-1)
+    return exp_s / sum_s[..., None]
 
 def priors(x):
-
     def load_json(path):
         with open(path) as fj:
             data = json.load(fj)
@@ -81,9 +77,9 @@ def line2rec(line):
     return vid, label, int(items[1]) # length
 
 if args.dataset == 'huawei_fb':
-    split_tp = [line2rec(x) for x in open('data/huawei_splits/test_fb.txt')]
+    split_tp = [line2rec(x) for x in open('data/huawei_splits/test_long_fb.txt')]
 else:
-    split_tp = [line2rec(x) for x in open('data/huawei_splits/test_bb.txt')]
+    split_tp = [line2rec(x) for x in open('data/huawei_splits/test_long_bb.txt')]
 
 f_info = [{}, {}, {}]
 
@@ -93,12 +89,7 @@ for x in split_tp:
     f_info[2][os.path.basename(x[0])] = x[2]
     # assume that length of rgb and flow is same
     
-# f_info = parse_directory(args.frame_path,
-#                         args.rgb_prefix, args.flow_x_prefix, args.flow_y_prefix, list_file)
 gpu_list = args.gpus
-
-#eval_video_list = split_tp[args.split - 1][1]
-
 eval_video_list = split_tp
 score_name = 'fc-huawei'
 
@@ -112,36 +103,17 @@ def build_net():
     else:
         net = CaffeNet(args.net_proto, args.net_weights, gpu_list[my_id - 1])
 
-def output(video_scores, prior=None):
-    if prior != None:
-        temp = [default_aggregation_func(x[0]) for x in video_scores]
-        temp = [ map(operator.truediv, x, prior) for x in temp]
-        video_pred = [ np.argmax(x) for x in temp]
-        max_scores = [ np.max(x) for x in temp]
-    else:
-        video_pred = [np.argmax(default_aggregation_func(x[0])) if np.max(default_aggregation_func(x[0])) > .205 else -1 for x in video_scores]
-        max_scores = [np.max(default_aggregation_func(x[0])) for x in video_scores]
+def default_aggregation_func(x):
+    return softmax(np.mean(x, axis=0))
 
-    for index , x in enumerate(max_scores):
-        print "%s %s %s" % (x, video_pred[index], eval_video_list[index])
-    video_labels = [x[1] for x in video_scores]
+def output(video_scores):
+    frame_scores = default_aggregation_func(video_scores)
+    frame_pred = np.argmax(frame_scores) if np.max(frame_scores) > .205 else -1 
+    max_scores = np.max(frame_scores)
     
     # removing classes:
-    video_labels = [2 if x == 4 else x for x in video_labels]
-    video_pred = [2 if x == 4 else x for x in video_pred]
-    cf = confusion_matrix(video_labels, video_pred).astype(float)
-    print cf
-    cls_cnt = cf.sum(axis=1)
-    cls_hit = np.diag(cf)
-
-    cls_acc = cls_hit/cls_cnt
-
-    print cls_acc
-
-    print 'Mean accuracy over classes {:.02f}%'.format(np.mean(cls_acc)*100)
-    print 'Accuracy over classes: %s' % (np.mean(cls_acc)*100)
-    print 'Accuracy over samples: %s'% (cls_hit / np.sum(cf)*100)
-
+    frame_pred = 2 if frame_pred == 4 else frame_pred
+    print "%s %s" % (frame_pred, max_scores)
 
 def eval_video(video):
     global net
@@ -186,24 +158,13 @@ def eval_video(video):
                 flow_stack.append(cv2.imread(os.path.join(video_frame_path, x_name), cv2.IMREAD_GRAYSCALE))
                 flow_stack.append(cv2.imread(os.path.join(video_frame_path, y_name), cv2.IMREAD_GRAYSCALE))
             scores = net.predict_single_flow_stack(flow_stack, score_name, frame_size=(340, 256))
+            sys.stdout.write("%s: " % tick) 
+            output(scores)
             frame_scores.append(softmax(scores))
 
     print 'video {} done'.format(vid)
     sys.stdin.flush()
     return np.array(frame_scores), label
 
-if args.num_worker > 1:
-    pool = multiprocessing.Pool(args.num_worker, initializer=build_net)
-    video_scores = pool.map(eval_video, eval_video_list)
-else:
-    build_net()
-    video_scores = map(eval_video, eval_video_list)
-np.save('preprior', video_scores)
-output(video_scores)
-
-print 'Divide score by prior'
-prior = priors(args.dataset)
-print "Prior %s " % prior
-np.save('prior', video_scores)
-#output(video_scores, prior)
-
+build_net()
+video_scores = map(eval_video, eval_video_list)
