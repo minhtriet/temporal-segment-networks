@@ -17,6 +17,8 @@ else
     FRAME_FOLDER="bb_flow"
 fi
 
-echo "python tools/eval_net.py $DATASET 1 $MODALITY /media/data/mtriet/dataset/$FRAME_FOLDER/ models/$DATASET/tsn_bn_inception_${MODALITY}_deploy.prototxt $LATEST --save_score score.txt"
+COMMAND="$(python tools/eval_net.py ${DATASET} 1 $MODALITY /media/data/mtriet/dataset/$FRAME_FOLDER/ models/$DATASET/tsn_bn_inception_${MODALITY}_deploy.prototxt $LATEST --save_score score.txt)"
+
+echo "${COMMAND}"
 
 python tools/eval_net.py $DATASET 1 $MODALITY /media/data/mtriet/dataset/$FRAME_FOLDER/ models/$DATASET/tsn_bn_inception_${MODALITY}_deploy.prototxt $LATEST --save_score score.txt
