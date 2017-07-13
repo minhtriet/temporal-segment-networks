@@ -110,9 +110,6 @@ def output(video_scores):
     frame_scores = default_aggregation_func(video_scores)
     frame_pred = np.argmax(frame_scores) if np.max(frame_scores) > .205 else -1 
     max_scores = np.max(frame_scores)
-    
-    # removing classes:
-    frame_pred = 2 if frame_pred == 4 else frame_pred
     print "%s %s" % (frame_pred, max_scores)
 
 def eval_video(video):
@@ -134,7 +131,8 @@ def eval_video(video):
     elif args.modality == 'flow':
         stack_depth = 5
 
-    step = (frame_cnt - stack_depth) / (args.num_frame_per_video-1)
+    # step = (frame_cnt - stack_depth) / (args.num_frame_per_video-1)
+    step = 5
     if step > 0:
         frame_ticks = range(1, min((2 + step * (args.num_frame_per_video-1)), frame_cnt+1), step)
     else:

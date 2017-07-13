@@ -13,7 +13,6 @@ import json
 
 import operator
 
-#from pyActionRecog import parse_directory
 from pyActionRecog import parse_split_file
 
 import subprocess
@@ -33,21 +32,22 @@ def priors(x):
         return data
 
     priors = []
-    if x == 'huawei_fb':
-        classes = load_json('data/huawei_splits/classes_fb.json')
-        print "List classes:" 
-        print classes
-        train_file = 'data/huawei_splits/train_fb.txt'
-        for i in classes:
-            batcmd="grep '%s' %s | wc -l" % (i, train_file)
-            result = subprocess.check_output(batcmd, shell=True)
-            priors.append(int(result))
+    x = x.split('_')[1]
+
+    classes = load_json('data/huawei_splits/classes_%s.json' % x)
+    print "List classes:" 
+    print classes
+    train_file = 'data/huawei_splits/train_%s.txt' % x
+    for i in classes:
+        batcmd="grep '%s' %s | wc -l" % (i, train_file)
+        result = subprocess.check_output(batcmd, shell=True)
+        priors.append(int(result))
 
     priors = [-1 if x == 0 else x for x in priors]
     return priors
 
 parser = argparse.ArgumentParser()
-parser.add_argument('dataset', type=str, choices=['ucf101', 'hmdb51', 'huawei_fb', 'huawei_bb'])
+parser.add_argument('dataset', type=str, choices=['huawei_fb', 'huawei_bb'])
 parser.add_argument('split', type=int, choices=[1, 2, 3],
                     help='on which split to test the network')
 parser.add_argument('modality', type=str, choices=['rgb', 'flow'])
@@ -72,7 +72,6 @@ from pyActionRecog.action_caffe import CaffeNet
 
 # build neccessary information
 print args.dataset
-# split_tp = parse_split_file(args.dataset)
 
 def line2rec(line):
     items = line.split(' ')
@@ -81,27 +80,20 @@ def line2rec(line):
     return vid, label, int(items[1]) # length
 
 if args.dataset == 'huawei_fb':
-    split_tp = [line2rec(x) for x in open('data/huawei_splits/test_fb.txt')]
+    eval_video_list = [line2rec(x) for x in open('data/huawei_splits/test_fb.txt')]
 else:
-    split_tp = [line2rec(x) for x in open('data/huawei_splits/test_bb.txt')]
+    eval_video_list = [line2rec(x) for x in open('data/huawei_splits/test_bb.txt')]
 
 f_info = [{}, {}, {}]
 
-for x in split_tp:
+for x in eval_video_list:
     f_info[0][os.path.basename(x[0])] = x[0]
     f_info[1][os.path.basename(x[0])] = x[2]
     f_info[2][os.path.basename(x[0])] = x[2]
     # assume that length of rgb and flow is same
     
-# f_info = parse_directory(args.frame_path,
-#                         args.rgb_prefix, args.flow_x_prefix, args.flow_y_prefix, list_file)
 gpu_list = args.gpus
-
-#eval_video_list = split_tp[args.split - 1][1]
-
-eval_video_list = split_tp
 score_name = 'fc-huawei'
-
 
 def build_net():
     global net
@@ -119,16 +111,13 @@ def output(video_scores, prior=None):
         video_pred = [ np.argmax(x) for x in temp]
         max_scores = [ np.max(x) for x in temp]
     else:
-        video_pred = [np.argmax(default_aggregation_func(x[0])) if np.max(default_aggregation_func(x[0])) > .205 else -1 for x in video_scores]
+        video_pred = [np.argmax(default_aggregation_func(x[0])) for x in video_scores]
         max_scores = [np.max(default_aggregation_func(x[0])) for x in video_scores]
 
     for index , x in enumerate(max_scores):
-        print "%s %s %s" % (x, video_pred[index], eval_video_list[index])
+        print "%s %s %s" % (default_aggregation_func(video_scores[index][0]), video_pred[index], eval_video_list[index])
     video_labels = [x[1] for x in video_scores]
     
-    # removing classes:
-    video_labels = [2 if x == 4 else x for x in video_labels]
-    video_pred = [2 if x == 4 else x for x in video_pred]
     cf = confusion_matrix(video_labels, video_pred).astype(float)
     print cf
     cls_cnt = cf.sum(axis=1)
@@ -147,6 +136,7 @@ def eval_video(video):
     global net
     label = video[1]
     vid = os.path.basename(video[0])
+    print 'video {} start'.format(vid)
     video_frame_path = f_info[0][vid]
     if args.modality == 'rgb':
         cnt_indexer = 1
@@ -205,5 +195,5 @@ print 'Divide score by prior'
 prior = priors(args.dataset)
 print "Prior %s " % prior
 np.save('prior', video_scores)
-#output(video_scores, prior)
+output(video_scores, prior)
 
