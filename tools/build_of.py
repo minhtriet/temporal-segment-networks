@@ -39,6 +39,7 @@ def run_optical_flow(vid_item, dev_id=0):
     vid_name = vid_path.split('/')[-1].split('.')[0]
     out_full_path = os.path.join(out_path, vid_name)
     try:
+        pdb.set_trace()
         os.mkdir(out_full_path)
     except OSError:
         pass
@@ -66,6 +67,7 @@ def run_warp_optical_flow(vid_item, dev_id=0):
     vid_name = vid_path.split('/')[-1].split('.')[0]
     out_full_path = os.path.join(out_path, vid_name)
     try:
+        pdb.set_trace()
         os.mkdir(out_full_path)
     except OSError:
         pass
@@ -114,7 +116,6 @@ if __name__ == '__main__':
         print "creating folder: "+out_path
         os.makedirs(out_path)
 
-#    vid_list = glob.glob(src_path+'/*/*.'+ext)
     vid_list = glob.glob(src_path+'/*.'+ext)
     print len(vid_list)
     pool = Pool(num_worker)

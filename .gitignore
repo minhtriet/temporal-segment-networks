@@ -29,7 +29,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+lib/*
 lib64/
 parts/
 sdist/
@@ -106,3 +106,7 @@ ENV/
 *.swo
 *.npz
 *.npy
+
+tools/frames
+lib/caffe-action
+lib/dense_flow

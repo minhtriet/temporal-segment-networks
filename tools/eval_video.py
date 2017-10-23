@@ -22,25 +22,6 @@ def softmax(raw_score, T=1):
     sum_s = exp_s.sum(axis=-1)
     return exp_s / sum_s[..., None]
 
-def priors(x):
-    def load_json(path):
-        with open(path) as fj:
-            data = json.load(fj)
-        return data
-
-    priors = []
-    if x == 'huawei_fb':
-        classes = load_json('data/huawei_splits/classes_fb.json')
-        print "List classes:" 
-        print classes
-        train_file = 'data/huawei_splits/train_fb.txt'
-        for i in classes:
-            batcmd="grep '%s' %s | wc -l" % (i, train_file)
-            result = subprocess.check_output(batcmd, shell=True)
-            priors.append(int(result))
-
-    priors = [-1 if x == 0 else x for x in priors]
-    return priors
 
 parser = argparse.ArgumentParser()
 parser.add_argument('dataset', type=str, choices=['ucf101', 'hmdb51', 'huawei_fb', 'huawei_bb'])
@@ -106,11 +87,21 @@ def build_net():
 def default_aggregation_func(x):
     return softmax(np.mean(x, axis=0))
 
-def output(video_scores):
+def output(f, video_scores):
+    
+    def load_json(path):
+        with open(path) as fj:
+            data = json.load(fj)
+        return data
+   
     frame_scores = default_aggregation_func(video_scores)
-    frame_pred = np.argmax(frame_scores) if np.max(frame_scores) > .205 else -1 
+    classes = load_json('data/huawei_splits/classes_%s.json' % args.dataset.split('_')[1])
+    frame_pred = np.argmax(frame_scores) 
     max_scores = np.max(frame_scores)
-    print "%s %s" % (frame_pred, max_scores)
+    for k, v in classes.items():
+        if v == frame_pred:
+            f.write("%s %s" % (frame_pred,k))
+            print "%s %s" % (frame_pred, k)
 
 def eval_video(video):
     global net
@@ -131,8 +122,7 @@ def eval_video(video):
     elif args.modality == 'flow':
         stack_depth = 5
 
-    # step = (frame_cnt - stack_depth) / (args.num_frame_per_video-1)
-    step = 5
+    step = (frame_cnt - stack_depth) / (args.num_frame_per_video-1)
     if step > 0:
         frame_ticks = range(1, min((2 + step * (args.num_frame_per_video-1)), frame_cnt+1), step)
     else:
@@ -141,24 +131,28 @@ def eval_video(video):
     assert(len(frame_ticks) == args.num_frame_per_video)
 
     frame_scores = []
-    for tick in frame_ticks:
-        if args.modality == 'rgb':
-            name = '{}{:05d}.jpg'.format(args.rgb_prefix, tick)
-            frame = cv2.imread(os.path.join(video_frame_path, name), cv2.IMREAD_COLOR)
-            scores = net.predict_single_frame([frame,], score_name, frame_size=(340, 256))
-            frame_scores.append(scores)
-        if args.modality == 'flow':
-            frame_idx = [min(frame_cnt, tick+offset) for offset in xrange(stack_depth)]
-            flow_stack = []
-            for idx in frame_idx:
-                x_name = '{}{:05d}.jpg'.format(args.flow_x_prefix, idx)
-                y_name = '{}{:05d}.jpg'.format(args.flow_y_prefix, idx)
-                flow_stack.append(cv2.imread(os.path.join(video_frame_path, x_name), cv2.IMREAD_GRAYSCALE))
-                flow_stack.append(cv2.imread(os.path.join(video_frame_path, y_name), cv2.IMREAD_GRAYSCALE))
-            scores = net.predict_single_flow_stack(flow_stack, score_name, frame_size=(340, 256))
-            sys.stdout.write("%s: " % tick) 
-            output(scores)
-            frame_scores.append(softmax(scores))
+    name = os.path.join(video_frame_path, "%s.aqt" % vid)
+    with open(os.path.join(name), 'w') as f: # TODO: check path
+        for i, tick in enumerate(frame_ticks):
+            if args.modality == 'rgb':
+                name = '{}{:05d}.jpg'.format(args.rgb_prefix, tick)
+                frame = cv2.imread(os.path.join(video_frame_path, name), cv2.IMREAD_COLOR)
+                scores = net.predict_single_frame([frame,], score_name, frame_size=(340, 256))
+                frame_scores.append(scores)
+            if args.modality == 'flow':
+                frame_idx = [min(frame_cnt, tick+offset) for offset in xrange(stack_depth)]
+                flow_stack = []
+                for idx in frame_idx:
+                    x_name = '{}{:05d}.jpg'.format(args.flow_x_prefix, idx)
+                    y_name = '{}{:05d}.jpg'.format(args.flow_y_prefix, idx)
+                    flow_stack.append(cv2.imread(os.path.join(video_frame_path, x_name), cv2.IMREAD_GRAYSCALE))
+                    flow_stack.append(cv2.imread(os.path.join(video_frame_path, y_name), cv2.IMREAD_GRAYSCALE))
+                scores = net.predict_single_flow_stack(flow_stack, score_name, frame_size=(340, 256))
+                frame_scores.append(softmax(scores))
+            sys.stdout.write("%s: " % tick)
+            f.write("-->> %d \n" % (0 if i == 0 else frame_ticks[i - 1]))  # TODO: Save last frame
+            output(f, scores)
+            f.write("\n-->> %d\n\n" % tick) 
 
     print 'video {} done'.format(vid)
     sys.stdin.flush()
