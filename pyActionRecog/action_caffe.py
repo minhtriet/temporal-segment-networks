@@ -1,12 +1,9 @@
 import sys
-
-
 import caffe
 from caffe.io import oversample
 import numpy as np
 from utils.io import flow_stack_oversample, fast_list2arr
 import cv2
-
 
 class CaffeNet(object):
 

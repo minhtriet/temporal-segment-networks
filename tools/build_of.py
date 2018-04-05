@@ -39,7 +39,6 @@ def run_optical_flow(vid_item, dev_id=0):
     vid_name = vid_path.split('/')[-1].split('.')[0]
     out_full_path = os.path.join(out_path, vid_name)
     try:
-        pdb.set_trace()
         os.mkdir(out_full_path)
     except OSError:
         pass
@@ -67,7 +66,6 @@ def run_warp_optical_flow(vid_item, dev_id=0):
     vid_name = vid_path.split('/')[-1].split('.')[0]
     out_full_path = os.path.join(out_path, vid_name)
     try:
-        pdb.set_trace()
         os.mkdir(out_full_path)
     except OSError:
         pass

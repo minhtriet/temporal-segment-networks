@@ -7,6 +7,7 @@ import cv2
 import numpy as np
 import multiprocessing
 from sklearn.metrics import confusion_matrix
+from pyActionRecog import parse_directory
 
 import pdb
 import json
@@ -34,14 +35,11 @@ parser.add_argument('net_weights', type=str)
 parser.add_argument('--rgb_prefix', type=str, help="prefix of RGB frames", default='image_')
 parser.add_argument('--flow_x_prefix', type=str, help="prefix of x direction flow images", default='flow_x_')
 parser.add_argument('--flow_y_prefix', type=str, help="prefix of y direction flow images", default='flow_y_')
-parser.add_argument('--num_frame_per_video', type=int, default=25,
-                    help="prefix of y direction flow images")
 parser.add_argument('--save_scores', type=str, default=None, help='the filename to save the scores in')
 parser.add_argument('--num_worker', type=int, default=1)
 parser.add_argument("--caffe_path", type=str, default='./lib/caffe-action/', help='path to the caffe toolbox')
 parser.add_argument("--gpus", type=int, nargs='+', default=None, help='specify list of gpu to use')
 args = parser.parse_args()
-
 print args
 
 sys.path.append(os.path.join(args.caffe_path, 'python'))
@@ -53,27 +51,20 @@ print args.dataset
 
 def line2rec(line):
     items = line.split(' ')
-    label = int(items[2])
     vid = items[0]
-    return vid, label, int(items[1]) # length
+    return vid, int(items[1]) # length
 
 if args.dataset == 'huawei_fb':
     split_tp = [line2rec(x) for x in open('data/huawei_splits/test_long_fb.txt')]
 else:
     split_tp = [line2rec(x) for x in open('data/huawei_splits/test_long_bb.txt')]
 
-f_info = [{}, {}, {}]
-
-for x in split_tp:
-    f_info[0][os.path.basename(x[0])] = x[0]
-    f_info[1][os.path.basename(x[0])] = x[2]
-    f_info[2][os.path.basename(x[0])] = x[2]
-    # assume that length of rgb and flow is same
+f_info = parse_directory(args.frame_path, args.rgb_prefix, args.flow_x_prefix, args.flow_y_prefix)
     
 gpu_list = args.gpus
 eval_video_list = split_tp
-score_name = 'fc-huawei'
-
+score_name = 'fc-action'
+#score_name = 'fc-huawei'
 
 def build_net():
     global net
@@ -87,26 +78,12 @@ def build_net():
 def default_aggregation_func(x):
     return softmax(np.mean(x, axis=0))
 
-def output(f, video_scores):
-    
-    def load_json(path):
-        with open(path) as fj:
-            data = json.load(fj)
-        return data
-   
-    frame_scores = default_aggregation_func(video_scores)
-    classes = load_json('data/huawei_splits/classes_%s.json' % args.dataset.split('_')[1])
-    frame_pred = np.argmax(frame_scores) 
-    max_scores = np.max(frame_scores)
-    for k, v in classes.items():
-        if v == frame_pred:
-            f.write("%s %s" % (frame_pred,k))
-            print "%s %s" % (frame_pred, k)
-
 def eval_video(video):
     global net
-    label = video[1]
     vid = os.path.basename(video[0])
+    num_frame_per_video = video[1]
+    print('VIDEO: %s' % vid)
+    pdb.set_trace()
     video_frame_path = f_info[0][vid]
     if args.modality == 'rgb':
         cnt_indexer = 1
@@ -122,41 +99,39 @@ def eval_video(video):
     elif args.modality == 'flow':
         stack_depth = 5
 
-    step = (frame_cnt - stack_depth) / (args.num_frame_per_video-1)
+    step = (frame_cnt - stack_depth) / (num_frame_per_video-1)
     if step > 0:
-        frame_ticks = range(1, min((2 + step * (args.num_frame_per_video-1)), frame_cnt+1), step)
+        frame_ticks = range(1, min((2 + step * (num_frame_per_video-1)), frame_cnt+1), step)
     else:
-        frame_ticks = [1] * args.num_frame_per_video
-
-    assert(len(frame_ticks) == args.num_frame_per_video)
-
+        frame_ticks = [1] * num_frame_per_video
+    pdb.set_trace()
+    assert(len(frame_ticks) == num_frame_per_video)
     frame_scores = []
     name = os.path.join(video_frame_path, "%s.aqt" % vid)
-    with open(os.path.join(name), 'w') as f: # TODO: check path
-        for i, tick in enumerate(frame_ticks):
-            if args.modality == 'rgb':
-                name = '{}{:05d}.jpg'.format(args.rgb_prefix, tick)
-                frame = cv2.imread(os.path.join(video_frame_path, name), cv2.IMREAD_COLOR)
-                scores = net.predict_single_frame([frame,], score_name, frame_size=(340, 256))
-                frame_scores.append(scores)
-            if args.modality == 'flow':
-                frame_idx = [min(frame_cnt, tick+offset) for offset in xrange(stack_depth)]
-                flow_stack = []
-                for idx in frame_idx:
-                    x_name = '{}{:05d}.jpg'.format(args.flow_x_prefix, idx)
-                    y_name = '{}{:05d}.jpg'.format(args.flow_y_prefix, idx)
-                    flow_stack.append(cv2.imread(os.path.join(video_frame_path, x_name), cv2.IMREAD_GRAYSCALE))
-                    flow_stack.append(cv2.imread(os.path.join(video_frame_path, y_name), cv2.IMREAD_GRAYSCALE))
-                scores = net.predict_single_flow_stack(flow_stack, score_name, frame_size=(340, 256))
-                frame_scores.append(softmax(scores))
-            sys.stdout.write("%s: " % tick)
-            f.write("-->> %d \n" % (0 if i == 0 else frame_ticks[i - 1]))  # TODO: Save last frame
-            output(f, scores)
-            f.write("\n-->> %d\n\n" % tick) 
-
+    for i, tick in enumerate(frame_ticks):
+      if args.modality == 'rgb':
+          name = '{}{:05d}.jpg'.format(args.rgb_prefix, tick)
+          frame = cv2.imread(os.path.join(video_frame_path, name), cv2.IMREAD_COLOR)
+          scores = net.predict_single_frame([frame,], score_name, frame_size=(340, 256))
+          frame_scores.append(scores)
+      if args.modality == 'flow':
+          frame_idx = [min(frame_cnt, tick+offset) for offset in xrange(stack_depth)]
+          flow_stack = []
+          for idx in frame_idx:
+              x_name = '{}{:05d}.jpg'.format(args.flow_x_prefix, idx)
+              y_name = '{}{:05d}.jpg'.format(args.flow_y_prefix, idx)
+              flow_stack.append(cv2.imread(os.path.join(video_frame_path, x_name), cv2.IMREAD_GRAYSCALE))
+              flow_stack.append(cv2.imread(os.path.join(video_frame_path, y_name), cv2.IMREAD_GRAYSCALE))
+          scores = net.predict_single_flow_stack(flow_stack, score_name, frame_size=(340, 256))
+          frame_scores.append(scores)
+#          frame_scores.extend(np.argmax(scores, axis=1))
+          video_pred = [np.argmax(default_aggregation_func(x[0])) for x in frame_scores] 
+      if (i % 1000) == 0:
+        print("evaluated frame %s: " % i)
+    np.savetxt("%s.csv" % vid, video_pred, delimiter=',')
     print 'video {} done'.format(vid)
     sys.stdin.flush()
-    return np.array(frame_scores), label
+    return np.array(frame_scores)
 
-build_net()
+#build_net()
 video_scores = map(eval_video, eval_video_list)

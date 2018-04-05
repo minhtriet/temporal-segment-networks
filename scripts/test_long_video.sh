@@ -18,6 +18,6 @@ else
     LATEST=`ls -t models/bb*${MODALITY}*.caffemodel | head -1`
 fi
 
-echo "python tools/eval_net.py $DATASET 1 $MODALITY /media/data/mtriet/dataset/$FRAME_FOLDER/ models/$DATASET/tsn_bn_inception_${MODALITY}_deploy.prototxt $LATEST --save_score score.txt"
+echo "python tools/eval_video.py $DATASET 1 $MODALITY /media/data/mtriet/dataset/$FRAME_FOLDER/ models/$DATASET/tsn_bn_inception_${MODALITY}_deploy.prototxt $LATEST --save_score score.txt"
 
 python tools/eval_video.py $DATASET 1 $MODALITY /media/data/mtriet/dataset/$FRAME_FOLDER/ models/$DATASET/tsn_bn_inception_${MODALITY}_deploy.prototxt $LATEST --save_score score.txt

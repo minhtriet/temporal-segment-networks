@@ -33,8 +33,9 @@ def parse_directory(path, rgb_prefix='image_', flow_x_prefix='flow_x_', flow_y_p
             raise ValueError('x and y direction have different number of flow images. video: '+f)
         flow_counts[k] = x_cnt
         if i % 200 == 0:
-            print '{} videos parsed'.format(i)
+            print '{} videos parsed, continuing...'.format(i)
 
+    print 'TOTAL: {} videos parsed'.format(i)
     print 'frame folder analysis done'
     return dir_dict, rgb_counts, flow_counts
 

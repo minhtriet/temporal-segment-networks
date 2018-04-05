@@ -110,3 +110,5 @@ ENV/
 tools/frames
 lib/caffe-action
 lib/dense_flow
+
+opencv-2.4.13
