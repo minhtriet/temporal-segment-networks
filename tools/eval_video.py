@@ -55,9 +55,9 @@ def line2rec(line):
     return vid, int(items[1]) # length
 
 if args.dataset == 'huawei_fb':
-    split_tp = [line2rec(x) for x in open('data/huawei_splits/test_long_fb.txt')]
+    split_tp = [line2rec(x) for x in open('data/huawei_splits/val_fb.txt')]
 else:
-    split_tp = [line2rec(x) for x in open('data/huawei_splits/test_long_bb.txt')]
+    split_tp = [line2rec(x) for x in open('data/huawei_splits/val_bb.txt')]
 
 f_info = parse_directory(args.frame_path, args.rgb_prefix, args.flow_x_prefix, args.flow_y_prefix)
     
@@ -83,30 +83,28 @@ def eval_video(video):
     vid = os.path.basename(video[0])
     num_frame_per_video = video[1]
     print('VIDEO: %s' % vid)
-    pdb.set_trace()
-    video_frame_path = f_info[0][vid]
     if args.modality == 'rgb':
         cnt_indexer = 1
     elif args.modality == 'flow':
         cnt_indexer = 2
     else:
         raise ValueError(args.modality)
-    frame_cnt = f_info[cnt_indexer][vid]
 
     stack_depth = 0
     if args.modality == 'rgb':
         stack_depth = 1
     elif args.modality == 'flow':
         stack_depth = 5
-
+    frame_cnt = f_info[cnt_indexer][vid]
     step = (frame_cnt - stack_depth) / (num_frame_per_video-1)
+    pdb.set_trace()
     if step > 0:
         frame_ticks = range(1, min((2 + step * (num_frame_per_video-1)), frame_cnt+1), step)
     else:
         frame_ticks = [1] * num_frame_per_video
-    pdb.set_trace()
     assert(len(frame_ticks) == num_frame_per_video)
     frame_scores = []
+    video_frame_path = f_info[0][vid]
     name = os.path.join(video_frame_path, "%s.aqt" % vid)
     for i, tick in enumerate(frame_ticks):
       if args.modality == 'rgb':
